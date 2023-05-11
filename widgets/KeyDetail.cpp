@@ -22,6 +22,8 @@
 #include <QPushButton>
 #include <QLineEdit>
 
+#include <stdio.h>
+
 KeyDetail::KeyDetail(QWidget *w)
 	: QDialog(w ? w : mainwin) , keySqlId()
 {
@@ -119,6 +121,30 @@ void KeyDetail::setKey(pki_key *key)
 			tlPrivEx->setText(tr("Private key"));
 			keyPubEx->setText(key->subprime());
 			keyModulus->setText(key->pubkey());
+			break;
+		case EVP_PKEY_FALCON512:
+		case EVP_PKEY_FALCON1024:
+		case EVP_PKEY_DILITHIUM2:
+		case EVP_PKEY_DILITHIUM3:
+		case EVP_PKEY_DILITHIUM5:
+			tlPubEx->setText(tr("none"));
+			tlModulus->setTitle(tr("Public key"));
+			tlPrivEx->setText(tr("Private key"));
+			keyPubEx->setText(key->subprime());
+			
+			auto* buffer = new unsigned char[key->GetSize() + 1];
+			BIO *bio = BIO_new(BIO_s_mem());
+			int lenkey = EVP_PKEY_print_public(bio, key->GetKey(), 0, NULL);
+			BIO_free(bio);
+			bio = BIO_new(BIO_s_mem());
+			delete [] buffer;
+
+			buffer = new unsigned char[lenkey];
+			unsigned char* buf = buffer;
+			EVP_PKEY_print_public(bio, key->GetKey(), 0, NULL);
+			auto lenbuff = BIO_get_mem_data(bio, &buf);
+			
+			keyModulus->setText(tr((char*)buf));
 			break;
 #ifndef OPENSSL_NO_EC
 		case EVP_PKEY_EC:

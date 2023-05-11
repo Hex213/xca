@@ -194,7 +194,7 @@ int db_key::exportFlags(const QModelIndex &index) const
 		return 0;
 
 	int keytype = key->getKeyType();
-	if (keytype != EVP_PKEY_RSA && keytype != EVP_PKEY_DSA)
+	if (keytype != EVP_PKEY_RSA && keytype != EVP_PKEY_DSA && keytype != EVP_PKEY_FALCON512 && keytype != EVP_PKEY_FALCON1024 && keytype != EVP_PKEY_DILITHIUM2 && keytype != EVP_PKEY_DILITHIUM3 && keytype != EVP_PKEY_DILITHIUM5)
 		disable_flags |= F_PVK;
 #ifdef EVP_PKEY_ED25519
 	if (keytype == EVP_PKEY_ED25519)

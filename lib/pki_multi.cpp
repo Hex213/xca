@@ -88,7 +88,17 @@ static pki_base *pkiByPEM(QString text, int *skip)
 				text.startsWith(PEM_STRING_ECPRIVATEKEY D5) ||
 				text.startsWith(PEM_STRING_PKCS8 D5) ||
 				text.startsWith(PEM_STRING_PKCS8INF D5) ||
-				text.startsWith(PEM_STRING_OPENSSH_KEY D5))
+				text.startsWith(PEM_STRING_OPENSSH_KEY D5) ||
+				text.startsWith("Falcon512" PEM_STRING_PUBLIC D5) ||
+				text.startsWith("Falcon1024" PEM_STRING_PUBLIC D5) ||
+				text.startsWith("Dilithium2" PEM_STRING_PUBLIC D5) ||
+				text.startsWith("DILITHIUM3" PEM_STRING_PUBLIC D5) ||
+				text.startsWith("DILITHIUM5" PEM_STRING_PUBLIC D5) ||
+				text.startsWith("Falcon512 PRIVATE KEY" D5) ||
+				text.startsWith("Falcon1024 PRIVATE KEY" D5) ||
+				text.startsWith("Dilithium2 PRIVATE KEY" D5) ||
+				text.startsWith("DILITHIUM3 PRIVATE KEY" D5) ||
+				text.startsWith("DILITHIUM5 PRIVATE KEY" D5))
 
 		return new pki_evp();
 

@@ -85,6 +85,9 @@ bool pki_evp::sqlUpdatePrivateKey()
 
 void pki_evp::generate(const keyjob &task)
 {
+	ENGINE *e = NULL;
+    EVP_PKEY_CTX *ctx = NULL;
+
 	Entropy::seed_rng();
 	XcaProgress progress;
 
@@ -112,7 +115,20 @@ void pki_evp::generate(const keyjob &task)
 			DSA_free(dsakey);
 		break;
 	}
-#ifndef OPENSSL_NO_EC
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5:
+		EVP_PKEY *pkey = NULL;
+		EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_id(task.ktype.type, NULL);
+		EVP_PKEY_keygen_init(pctx);
+		EVP_PKEY_keygen(pctx, &pkey);
+		EVP_PKEY_CTX_free(pctx);
+		EVP_PKEY_free(key);
+		key = pkey;
+		break;
+	#ifndef OPENSSL_NO_EC
 	case EVP_PKEY_EC: {
 		EC_KEY *eckey;
 		EC_GROUP *group = EC_GROUP_new_by_curve_name(task.ec_nid);
@@ -185,6 +201,16 @@ static bool EVP_PKEY_isPrivKey(EVP_PKEY *key)
 		case EVP_PKEY_DSA:
 			DSA_get0_key(EVP_PKEY_get0_DSA(key), NULL, &b);
 			return b ? true: false;
+		case EVP_PKEY_FALCON512:
+			return EVP_PKEY_bits(key) == (OQS_SIG_falcon_512_length_secret_key * 8);
+		case EVP_PKEY_FALCON1024:
+			return EVP_PKEY_bits(key) == (OQS_SIG_falcon_1024_length_secret_key * 8);
+		case EVP_PKEY_DILITHIUM2:
+			return EVP_PKEY_bits(key) == (OQS_SIG_dilithium_2_length_secret_key * 8);
+		case EVP_PKEY_DILITHIUM3:
+			return EVP_PKEY_bits(key) == (OQS_SIG_dilithium_3_length_secret_key * 8);
+		case EVP_PKEY_DILITHIUM5:
+			return EVP_PKEY_bits(key) == (OQS_SIG_dilithium_5_length_secret_key * 8);
 #ifndef OPENSSL_NO_EC
 		case EVP_PKEY_EC:
 			return EC_KEY_get0_private_key(
@@ -487,7 +513,7 @@ EVP_PKEY *pki_evp::decryptKey() const
 		}
 	}
 	QByteArray myencKey = getEncKey();
-	qDebug() << "myencKey.count()"<<myencKey.count();
+	qDebug() << "myencKey.count()" << myencKey.count();
 	if (myencKey.count() == 0)
 		return NULL;
 	EVP_PKEY *priv = NULL;
@@ -566,9 +592,36 @@ void pki_evp::encryptKey(const char *password)
 	}
 
 	/* Convert private key to DER(PKCS8-aes) */
-	BioByteArray bba;
+	BioByteArray bba = BioByteArray();
+
+	pki_openssl_error();
+	/*char* passout = NULL;
+
+	auto cipher = EVP_des_ede3_cbc();
+	auto md = EVP_sha3_256();
+
+	unsigned int nkey = EVP_CIPHER_key_length(cipher);
+	unsigned int niv = EVP_CIPHER_iv_length(cipher);
+	unsigned char key1[nkey];
+	unsigned char iv1[niv];
+
+	qInfo() << niv << " | " << nkey;
+
+	memcpy(iv1, OPENSSL_hexstr2buf("3F17F5316E2BAC89", 17), niv);*/
+	//auto rc = EVP_BytesToKey(cipher, md, iv1 /*salt*/, "TEST", 4, 1, key1, NULL /*iv*/);
+ 	//if (rc != nkey)
+	//	qWarning() << "Error write to cipher!";
+
+	//PEM_write_bio_PrivateKey(bba, key, EVP_aes_256_cbc(),
+	//	"TEST", 4, NULL, NULL);
+		//ownPassBuf.constUchar()/*NULL*/, ownPassBuf.size()/*0*/, NULL, 0);
+
+	pki_openssl_error();
 	i2d_PKCS8PrivateKey_bio(bba, key, EVP_aes_256_cbc(),
 		ownPassBuf.data(), ownPassBuf.size(), NULL, 0);
+
+	//i2d_PKCS8PrivateKey_bio(bba, key, EVP_aes_256_cbc(),
+	//	ownPassBuf.data(), ownPassBuf.size(), NULL, 0);
 	pki_openssl_error();
 	encKey = bba;
 
@@ -677,6 +730,14 @@ bool pki_evp::pem(BioByteArray &b)
 		case EVP_PKEY_DSA:
 			PEM_write_bio_DSAPrivateKey(b,
 				EVP_PKEY_get0_DSA(pkey),
+				NULL, NULL, 0, NULL, NULL);
+			break;
+		case EVP_PKEY_FALCON512:
+		case EVP_PKEY_FALCON1024:
+		case EVP_PKEY_DILITHIUM2:
+		case EVP_PKEY_DILITHIUM3:
+		case EVP_PKEY_DILITHIUM5:
+			PEM_write_bio_PrivateKey(b, pkey,
 				NULL, NULL, 0, NULL, NULL);
 			break;
 #ifndef OPENSSL_NO_EC
@@ -886,8 +947,10 @@ QString pki_evp::_sha512passwd(QByteArray pass, QString salt,
 	salt = salt.left(size);
 	pass = salt.toLatin1() + pass;
 
-	while (repeat--)
+	while (repeat--) {
+		//qInfo() << "DEBUG2";
 		pass = Digest(pass, EVP_sha512());
+	}
 
 	return salt + formatHash(pass, "");
 }

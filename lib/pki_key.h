@@ -36,6 +36,11 @@ class keytype
 				false, true),
 			keytype(EVP_PKEY_DSA, "DSA", CKM_DSA_KEY_PAIR_GEN,
 				false, true),
+			keytype(EVP_PKEY_FALCON512, "Falcon512", CKM_VENDOR_DEFINED, false, false),
+			keytype(EVP_PKEY_FALCON1024, "Falcon1024", CKM_VENDOR_DEFINED, false, false),
+			keytype(EVP_PKEY_DILITHIUM2, "Dilithium2", CKM_VENDOR_DEFINED, false, false),
+			keytype(EVP_PKEY_DILITHIUM3, "Dilithium3", CKM_VENDOR_DEFINED, false, false),
+			keytype(EVP_PKEY_DILITHIUM5, "Dilithium5", CKM_VENDOR_DEFINED, false, false),
 #ifndef OPENSSL_NO_EC
 			keytype(EVP_PKEY_EC, "EC", CKM_EC_KEY_PAIR_GEN,
 				true, false),
@@ -147,6 +152,9 @@ class keyjob
 		return false;
 #endif
 	}
+	bool isOQS() const {
+		return ktype.type == EVP_PKEY_FALCON512 || ktype.type == EVP_PKEY_FALCON1024 || ktype.type == EVP_PKEY_DILITHIUM2 || ktype.type == EVP_PKEY_DILITHIUM3 || ktype.type == EVP_PKEY_DILITHIUM5;
+	}
 	bool isValid()
 	{
 		if (!ktype.isValid())
@@ -154,6 +162,8 @@ class keyjob
 		if (isED25519())
 			return true;
 		if (isEC() && builtinCurves.containNid(ec_nid))
+			return true;
+		if (isOQS()) 
 			return true;
 		if (!isEC() && size > 0)
 			return true;
@@ -206,6 +216,14 @@ class pki_key: public pki_base
 		virtual QList<int> possibleHashNids();
 		QString getMsg(msg_type msg) const;
 
+		int GetSize() const;
+		EVP_PKEY* GetKey() const;
+		void write_SSH2_private(BIO *b,
+			const EVP_PKEY *pkey, const EVP_CIPHER *enc) const;
+		QByteArray GetPubKey(int length) const;
+		QByteArray GetPrivKey(EVP_PKEY *pkey, int length) const;
+		int GetKeySize(int type) const;
+
 		void writePublic(XFile &file, bool pem) const;
 		bool compare(const pki_base *ref) const;
 		int getKeyType() const;
@@ -239,6 +257,9 @@ class pki_key: public pki_base
 		QString pubEx() const;
 		QString subprime() const;
 		QString pubkey() const;
+
+		QByteArray OqsPubKey(int keylen) const;
+		QByteArray OqsPrivKey(int keylen) const;
 
 #ifndef OPENSSL_NO_EC
 		int ecParamNid() const;

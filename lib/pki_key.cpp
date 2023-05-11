@@ -301,6 +301,64 @@ QString pki_key::pubkey() const
 	}
 	return QString();
 }
+
+static int pki_key::GetSize() const
+{
+	return key_size;
+}
+
+static EVP_PKEY* pki_key::GetKey() const {
+	return key;
+}
+
+static QByteArray _GetKey(int(*EVP_PKEY_get_raw)
+			(const EVP_PKEY*, unsigned char *, size_t *),
+			const EVP_PKEY *pkey, int length, bool privateK)
+{
+	unsigned char k[length];
+	size_t len = sizeof k;
+
+	if (EVP_PKEY_get_raw_private_key(pkey, k, &len) && privateK) {
+		qInfo() << "testK1: " << k;
+		return QByteArray((char*)k, len);
+	}
+	if (EVP_PKEY_get_raw_public_key(pkey, k, &len) && !privateK) {
+		qInfo() << "testK2: " << k;
+		return QByteArray((char*)k, len);
+	}
+
+	qDebug() << "Not get raw";
+	return QByteArray();
+}
+
+QByteArray pki_key::GetPubKey(int length) const
+{
+	return _GetKey(EVP_PKEY_get_raw_public_key, key, length, false);
+}
+
+QByteArray pki_key::GetPrivKey(EVP_PKEY *pkey, int length) const
+{
+	return _GetKey(EVP_PKEY_get_raw_private_key, pkey, length, true);
+}
+
+int pki_key::GetKeySize(int type) const
+{
+	switch (type) {
+		case EVP_PKEY_FALCON512:
+			return OQS_SIG_falcon_512_length_public_key;
+		case EVP_PKEY_FALCON1024:
+			return OQS_SIG_falcon_1024_length_public_key;
+		case EVP_PKEY_DILITHIUM2:
+			return OQS_SIG_dilithium_2_length_public_key;
+		case EVP_PKEY_DILITHIUM3:
+			return OQS_SIG_dilithium_3_length_public_key;
+		case EVP_PKEY_DILITHIUM5:
+			return OQS_SIG_dilithium_5_length_public_key;
+		default:
+			return 0;
+	}
+}
+
 #ifndef OPENSSL_NO_EC
 int pki_key::ecParamNid() const
 {
@@ -332,6 +390,29 @@ QString pki_key::ecPubKey() const
 		BN_free(pub_key);
 	}
 	return pub;
+}
+
+
+static QByteArray OqsKey(int(*EVP_PKEY_get_raw)
+			(const EVP_PKEY*, unsigned char *, size_t *),
+			const EVP_PKEY *pkey, int keylen)
+{
+	unsigned char* k = (unsigned char*)malloc(keylen);
+	size_t len = keylen;
+
+	if (EVP_PKEY_get_raw(pkey, k, &len))
+		return QByteArray((char*)k, len);
+	return QByteArray();
+}
+
+QByteArray pki_key::OqsPubKey(int keylen) const
+{
+	return OqsKey(EVP_PKEY_get_raw_public_key, key, keylen);
+}
+
+QByteArray pki_key::OqsPrivKey(int keylen) const
+{
+	return OqsKey(EVP_PKEY_get_raw_private_key, key, keylen);
 }
 
 #ifdef EVP_PKEY_ED25519
@@ -387,6 +468,13 @@ QList<int> pki_key::possibleHashNids()
 		case EVP_PKEY_EC:
 			nids << NID_sha1  << NID_sha224 << NID_sha256 <<
 				NID_sha384 << NID_sha512;
+			break;
+		case EVP_PKEY_FALCON512:
+		case EVP_PKEY_FALCON1024:
+		case EVP_PKEY_DILITHIUM2:
+		case EVP_PKEY_DILITHIUM3:
+		case EVP_PKEY_DILITHIUM5:
+			nids << NID_sha256 << NID_sha384 << NID_sha512;
 			break;
 	}
 	return nids;
@@ -665,6 +753,8 @@ EVP_PKEY *pki_key::load_ssh2_key(const QByteArray &b)
 		pki_openssl_error();
 #endif
 #endif
+	} else if (sl[0].startsWith("ssh-falcon512") || sl[0].startsWith("ssh-falcon1024") || sl[0].startsWith("ssh-dilithium2") || sl[0].startsWith("ssh-dilithium3") || sl[0].startsWith("ssh-dilithium5")) {
+		// Neuspesna implementacia
 	} else {
 		throw errorEx(tr("Unexpected SSH2 content: '%1'").arg(sl[0]));
 	}
@@ -687,6 +777,7 @@ void pki_key::ssh_key_QBA2data(const QByteArray &ba, QByteArray *data) const
 	data->append(ba);
 }
 
+//Violate error
 void pki_key::ssh_key_bn2data(const BIGNUM *bn, QByteArray *data) const
 {
 	QByteArray big;
@@ -710,6 +801,12 @@ bool pki_key::SSH2_compatible() const
 #endif
 	case EVP_PKEY_RSA:
 	case EVP_PKEY_DSA:
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5:
+		// Povodne povolene pre OQS
 		return true;
 	}
 	return false;
@@ -759,6 +856,26 @@ QByteArray pki_key::SSH2publicQByteArray(bool raw) const
 		}
 		pki_openssl_error();
 		break;
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5: 
+	{
+		int len = 0;
+		switch (getKeyType())
+		{
+			case EVP_PKEY_FALCON512: txt = "ssh-falcon512"; len = OQS_SIG_falcon_512_length_public_key; break;
+			case EVP_PKEY_FALCON1024: txt = "ssh-falcon1024"; len = OQS_SIG_falcon_1024_length_public_key; break;
+			case EVP_PKEY_DILITHIUM2: txt = "ssh-dilithium2"; len = OQS_SIG_dilithium_2_length_public_key; break;
+			case EVP_PKEY_DILITHIUM3: txt = "ssh-dilithium3"; len = OQS_SIG_dilithium_3_length_public_key; break;
+			case EVP_PKEY_DILITHIUM5: txt = "ssh-dilithium5"; len = OQS_SIG_dilithium_5_length_public_key; break;
+		}
+		//TODOOWN: potreba dalsia analyza
+		//ssh_key_QBA2data(txt, &data);
+		//ssh_key_QBA2data(OqsPubKey(len), &data);
+		break;
+	}
 #ifdef EVP_PKEY_ED25519
 	case EVP_PKEY_ED25519:
 		txt = "ssh-ed25519";
@@ -803,6 +920,21 @@ bool pki_key::verify(EVP_PKEY *pkey) const
 		DSA_get0_pqg(EVP_PKEY_get0_DSA(pkey), &a, &b, &c);
 		verify = a && b && c;
 		break;
+	case EVP_PKEY_FALCON512:
+		verify = EVP_PKEY_bits(pkey) == (OQS_SIG_falcon_512_length_public_key * 8);
+		break;
+	case EVP_PKEY_FALCON1024:
+		verify = EVP_PKEY_bits(pkey) == (OQS_SIG_falcon_1024_length_public_key * 8);
+		break;
+	case EVP_PKEY_DILITHIUM2:
+		verify = EVP_PKEY_bits(pkey) == (OQS_SIG_dilithium_2_length_public_key * 8);
+		break;
+	case EVP_PKEY_DILITHIUM3:
+		verify = EVP_PKEY_bits(pkey) == (OQS_SIG_dilithium_3_length_public_key * 8);
+		break;
+	case EVP_PKEY_DILITHIUM5:
+		verify = EVP_PKEY_bits(pkey) == (OQS_SIG_dilithium_5_length_public_key * 8);
+		break;
 #ifndef OPENSSL_NO_EC
 	case EVP_PKEY_EC:
 		verify = EC_KEY_check_key(EVP_PKEY_get0_EC_KEY(pkey)) == 1;
@@ -836,22 +968,28 @@ QString pki_key::fingerprint(const QString &format) const
 	QByteArray data;
 	QStringList sl = format.toLower().split(" ");
 
-	if (sl.size() < 2)
+	if (sl.size() < 2) {
 		return QString("Invalid format: %1").arg(format);
-	if (sl[0] == "ssh")
+	}
+	if (sl[0] == "ssh") {
 		data = SSH2publicQByteArray(true);
-	else if (sl[0] == "x509")
+	}
+	else if (sl[0] == "x509") {
 		data = X509_PUBKEY_public_key();
-	else if (sl[0] == "der")
+	}
+	else if (sl[0] == "der") {
 		data = i2d_bytearray(I2D_VOID(i2d_PUBKEY), key);
-	else
+	}
+	else {
 		return QString("Invalid format: %1").arg(sl[0]);
+	}
 
 	md = EVP_get_digestbyname(CCHAR(sl[1]));
 	if (!md)
 		return QString("Invalid hash: %1").arg(sl[1]);
 
 	if (sl.size() > 2 && sl[2] == "b64") {
+		qInfo() << "DEBUG3";
 		QString s(Digest(data, md).toBase64());
 		s.chop(1);
 		return s;

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.12.0)
 
+set(CMAKE_C_COMPILER "gcc-8.1.0")
+set(CMAKE_CXX_COMPILER "<PREFIX1>/Tools/mingw810_64/bin/g++.exe")
+add_compile_options(-fpermissive)
+
 project(xca
 	DESCRIPTION "X Certificate and Key management"
 	HOMEPAGE_URL http://xca.hohnstaedt.de
@@ -32,16 +36,18 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS "${PROJECT_SOURCE_DIR}/ui")
 set(CMAKE_AUTOUIC ON)
-add_compile_definitions(OPENSSL_SUPPRESS_DEPRECATED)
+#add_compile_definitions(OPENSSL_SUPPRESS_DEPRECATED)
 
 configure_file(local.h.in local.h)
 
 ##### Libraries and executables
 
+set(OQS_INCLUDE_DIR "<PREFIX2>/liboqs/build/include")
+
 add_executable(${CMAKE_PROJECT_NAME} img/imgres.qrc ${PROJECT_BINARY_DIR}/local.h)
 add_executable(xcadoc ${PROJECT_BINARY_DIR}/local.h)
 
-include_directories(${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR})
+include_directories(${PROJECT_BINARY_DIR} ${PROJECT_SOURCE_DIR} ${OQS_INCLUDE_DIR})
 
 set(PSQL_BINDIR "")
 set(MYSQL_BINDIR "")
@@ -79,7 +85,18 @@ file(TO_CMAKE_PATH "${OPENSSL_ROOT_DIR}" OPENSSL_ROOT_DIR)
 file(TO_CMAKE_PATH "${PSQL_BINDIR}" PSQL_BINDIR)
 file(TO_CMAKE_PATH "${MYSQL_BINDIR}" MYSQL_BINDIR)
 
+set(OPENSSL_ROOT_DIR "C:/Program Files/OpenSSL")
+
 find_package(OpenSSL REQUIRED)
+
+message(STATUS "OPENSSL_ROOT_DIR: ${OPENSSL_ROOT_DIR}")
+message(STATUS "OPENSSL_FOUND: ${OPENSSL_FOUND}")
+message(STATUS "OPENSSL_INCLUDE_DIR: ${OPENSSL_INCLUDE_DIR}")
+message(STATUS "OPENSSL_CRYPTO_LIBRARY: ${OPENSSL_CRYPTO_LIBRARY}")
+message(STATUS "OPENSSL_SSL_LIBRARY: ${OPENSSL_SSL_LIBRARY}")
+message(STATUS "OPENSSL_LIBRARIES: ${OPENSSL_LIBRARIES}")
+message(STATUS "OPENSSL_VERSION: ${OPENSSL_VERSION}")
+
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Core)
 set(QT Qt${QT_VERSION_MAJOR})
 find_package(${QT} REQUIRED COMPONENTS Core Widgets Sql Help LinguistTools)
@@ -96,10 +113,12 @@ if (NOT OPENSSL_ROOT_DIR)
 endif()
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
+	OpenSSL::applink
 	OpenSSL::Crypto
 	${QT}::Widgets ${QT}::Core ${QT}::Sql ${QT}::Help
 )
 target_link_libraries(xcadoc
+	OpenSSL::applink
 	OpenSSL::Crypto
 	${QT}::Widgets ${QT}::Core ${QT}::Sql ${QT}::Help
 )

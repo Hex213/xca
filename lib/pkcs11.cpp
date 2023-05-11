@@ -940,6 +940,9 @@ EVP_PKEY *pkcs11::getPrivateKey(EVP_PKEY *pub, CK_OBJECT_HANDLE obj)
 
 	keytype = EVP_PKEY_id(pub);
 
+	unsigned char *pubkey = NULL;
+	size_t len;
+
 	switch (EVP_PKEY_type(keytype)) {
 	case EVP_PKEY_RSA:
 		rsa = RSAPublicKey_dup(EVP_PKEY_get0_RSA(pub));
@@ -972,6 +975,23 @@ EVP_PKEY *pkcs11::getPrivateKey(EVP_PKEY *pub, CK_OBJECT_HANDLE obj)
 		openssl_error();
 		EVP_PKEY_assign_DSA(evp, dsa);
 		break;
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5:
+		if (ENGINE_get_ex_data(e, eng_idx))
+			qWarning() << "We forgot to free the previous Card key.";
+		ENGINE_set_ex_data(e, eng_idx, this);
+		p11obj = obj;
+		EVP_PKEY_get_raw_public_key(pub, NULL, &len);
+		pubkey = (unsigned char *)OPENSSL_malloc(len);
+		Q_CHECK_PTR(pubkey);
+		EVP_PKEY_get_raw_public_key(pub, pubkey, &len);
+		evp = EVP_PKEY_new_raw_public_key(EVP_PKEY_type(keytype), e, pubkey, len);
+		openssl_error();
+		OPENSSL_free(pubkey);
+		break;
 #ifndef OPENSSL_NO_EC
 	case EVP_PKEY_EC:
 		ec = EC_KEY_dup(EVP_PKEY_get0_EC_KEY(pub));
@@ -989,13 +1009,12 @@ EVP_PKEY *pkcs11::getPrivateKey(EVP_PKEY *pub, CK_OBJECT_HANDLE obj)
 #endif
 #ifdef EVP_PKEY_ED25519
 	case EVP_PKEY_ED25519:
-		size_t len;
 		if (ENGINE_get_ex_data(e, eng_idx))
 			qWarning() << "We forgot to free the previous Card key.";
 		ENGINE_set_ex_data(e, eng_idx, this);
 		p11obj = obj;
 		EVP_PKEY_get_raw_public_key(pub, NULL, &len);
-		unsigned char *pubkey = (unsigned char *)OPENSSL_malloc(len);
+		pubkey = (unsigned char *)OPENSSL_malloc(len);
 		Q_CHECK_PTR(pubkey);
 		EVP_PKEY_get_raw_public_key(pub, pubkey, &len);
 		evp = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, e, pubkey, len);

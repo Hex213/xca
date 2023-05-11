@@ -228,6 +228,16 @@ EVP_PKEY *pki_scard::load_pubkey(pkcs11 &p11, CK_OBJECT_HANDLE object) const
 		break;
 	}
 #endif
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5:
+	{
+		//Neuspesne ziskanie verejneho kluca
+		//pkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL,)
+		break;
+	}
 	default:
 		throw errorEx(QString("Unsupported CKA_KEY_TYPE: %1\n").arg(keytype));
 	}
@@ -339,6 +349,13 @@ pk11_attlist pki_scard::objectAttributesNoId(EVP_PKEY *pk, bool priv) const
 			pk11_attr_data(CKA_PRIME, p) <<
 			pk11_attr_data(CKA_SUBPRIME, q) <<
 			pk11_attr_data(CKA_BASE, g);
+		break;
+	case EVP_PKEY_FALCON512:
+	case EVP_PKEY_FALCON1024:
+	case EVP_PKEY_DILITHIUM2:
+	case EVP_PKEY_DILITHIUM3:
+	case EVP_PKEY_DILITHIUM5:
+		attrs << pk11_attr_ulong(CKA_KEY_TYPE, EVP_PKEY_type(EVP_PKEY_id(pk)));// << pk11_attr_data(CKA_ty);
 		break;
 #ifndef OPENSSL_NO_EC
 	case EVP_PKEY_EC:
@@ -578,6 +595,17 @@ QList<int> pki_scard::possibleHashNids()
 			case CKM_DSA_SHA1:        nids << NID_sha1; break;
 			}
 			break;
+		case EVP_PKEY_FALCON512:
+		case EVP_PKEY_FALCON1024:
+		case EVP_PKEY_DILITHIUM2:
+		case EVP_PKEY_DILITHIUM3:
+		case EVP_PKEY_DILITHIUM5:
+			switch (mechanism) {
+				// Chybaju definicie
+				default:
+					nids << NID_sha256; break;
+			}
+			break;
 #ifndef OPENSSL_NO_EC
 		case EVP_PKEY_EC:
 			switch (mechanism) {
@@ -592,6 +620,13 @@ QList<int> pki_scard::possibleHashNids()
 		case EVP_PKEY_RSA:
 			nids << NID_md5 << NID_sha1 << NID_sha256 <<
 				NID_sha384 << NID_sha512 << NID_ripemd160;
+			break;
+		case EVP_PKEY_FALCON512:
+		case EVP_PKEY_FALCON1024:
+		case EVP_PKEY_DILITHIUM2:
+		case EVP_PKEY_DILITHIUM3:
+		case EVP_PKEY_DILITHIUM5:
+			nids << NID_sha256 << NID_sha384 << NID_sha512;
 			break;
 		case EVP_PKEY_DSA:
 #ifndef OPENSSL_NO_EC

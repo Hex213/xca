@@ -88,7 +88,9 @@ QSqlError pki_x509super::deleteSqlData()
 
 pki_key *pki_x509super::getRefKey() const
 {
-	return Store.lookupPki<pki_key>(keySqlId);
+	// Kvoli debug
+	auto test = Store.lookupPki<pki_key>(keySqlId);
+	return test;
 }
 
 unsigned pki_x509super::pubHash() const

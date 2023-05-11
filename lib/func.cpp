@@ -499,8 +499,15 @@ void *d2i_bytearray(void *(*d2i)(void *, unsigned char **, long),
 void _openssl_error(const QString &txt, const char *file, int line)
 {
 	QString error;
+	bool first = true;
 
 	while (int i = ERR_get_error() ) {
+		// Kvoli debug
+		if (first) {
+			qInfo("From file: %s\nAt line: %i", file, line);
+			first = false;
+		}
+		qInfo("OPENSSL has error - %s", ERR_error_string(i, NULL));
 		error += QString(ERR_error_string(i, NULL)) + "\n";
 		fputs(CCHAR(QString("OpenSSL error (%1:%2) : %3\n").
 			arg(file).arg(line).arg(ERR_error_string(i, NULL))),

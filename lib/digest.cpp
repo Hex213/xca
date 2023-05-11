@@ -53,7 +53,9 @@ bool digest::isInsecure() const
 
 const EVP_MD *digest::MD() const
 {
-	return md_nid == NID_undef ? NULL : EVP_get_digestbynid(md_nid);
+	// Kvoli debug
+	auto test = md_nid == NID_undef ? NULL : EVP_get_digestbynid(md_nid);
+	return test;
 }
 
 QString digest::name() const

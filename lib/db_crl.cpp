@@ -143,7 +143,6 @@ pki_crl *db_crl::newCrl(const crljob &task)
 
 		foreach(x509rev rev, cert->getRevList())
 			crl->addRev(rev, task.withReason);
-
 		if (task.authKeyId) {
 			crl->addV3ext(e.create(NID_authority_key_identifier,
 				"keyid,issuer", &ext_ctx));

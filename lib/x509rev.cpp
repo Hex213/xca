@@ -215,8 +215,9 @@ x509revList x509revList::fromSql(QVariant caId)
 			"FROM revocations WHERE caId=?");
 	q.bindValue(0, caId);
 	q.exec();
-	if (q.lastError().isValid())
+	if (q.lastError().isValid()) {
 		return list;
+	}
 	while (q.next()) {
 		x509rev r(q.record());
 		list.append(r);
